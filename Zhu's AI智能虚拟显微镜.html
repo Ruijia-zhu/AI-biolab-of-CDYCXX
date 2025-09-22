@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Zhu's AI智能虚拟显微镜</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #2c3e50);
+            color: #fff;
+            min-height: 100vh;
+            padding: 15px;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 15px 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .header p {
+            font-size: 1rem;
+            max-width: 90%;
+            margin: 0 auto;
+            line-height: 1.5;
+            color: #e0e0e0;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column; /* 默认垂直布局，适合9:16比例 */
+            max-width: 1000px;
+            margin: 0 auto;
+            gap: 20px;
+            height: calc(100vh - 130px); /* 减去头部和底部空间 */
+        }
+        
+        .viewer {
+            flex: 1.2; /* 观察区占比较大 */
+            background: rgba(10, 10, 20, 0.9);
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        
+        .controls {
+            flex: 1; /* 控制区占比适中 */
+            background: rgba(30, 30, 46, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto; /* 控制区内容过多时可滚动 */
+        }
+        
+        .control-group {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .control-group h2 {
+            margin-bottom: 12px;
+            color: #4facfe;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .control-group h2 i {
+            margin-right: 10px;
+            font-size: 1.5rem;
+        }
+        
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* 单列布局，适合竖屏 */
+            gap: 12px;
+        }
+        
+        .control-item {
+            background: rgba(50, 50, 80, 0.6);
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid rgba(100, 100, 200, 0.3);
+        }
+        
+        .control-item:hover {
+            background: rgba(70, 70, 120, 0.8);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border-color: rgba(100, 200, 255, 0.5);
+        }
+        
+        .control-item.active {
+            background: rgba(80, 120, 200, 0.8);
+            border-color: rgba(100, 200, 255, 0.8);
+        }
+        
+        .control-item h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #a0d2ff;
+        }
+        
+        .control-item p {
+            font-size: 0.9rem;
+            color: #c0c0e0;
+            line-height: 1.4;
+        }
+        
+        .slider-control {
+            margin-top: 10px;
+        }
+        
+        .slider-control label {
+            display: block;
+            margin-bottom: 8px;
+            color: #a0d2ff;
+        }
+        
+        .slider-control input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(100, 100, 150, 0.5);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4facfe;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        .view-header {
+            padding: 12px 15px;
+            background: rgba(20, 20, 40, 0.9);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .view-header h2 {
+            color: #4facfe;
+            font-size: 1.2rem;
+        }
+        
+        .magnification-display {
+            background: rgba(60, 100, 180, 0.8);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        
+        .view-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .sample-image {
+            max-width: 90%;
+            max-height: 90%;
+            transition: all 0.5s ease;
+            box-shadow: 0 0 30px rgba(0, 100, 255, 0.2);
+        }
+        
+        .upload-area {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 30, 50, 0.9);
+            padding: 12px 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            border: 2px dashed rgba(100, 180, 255, 0.5);
+        }
+        
+        .upload-area p {
+            color: #a0d2ff;
+            font-size: 0.9rem;
+        }
+        
+        .upload-btn {
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            color: white;
+            border: none;
+            padding: 6px 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .microscope-info {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            max-width: 250px;
+            color: #a0d2ff;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            background: rgba(40, 40, 70, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #4facfe;
+        }
+        
+        .instructions h3 {
+            color: #4facfe;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 6px;
+            color: #d0d0f0;
+            font-size: 0.9rem;
+        }
+        
+        .warning {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(200, 50, 50, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 80%;
+            z-index: 1000;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: none;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .warning h3 {
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            color: #ffcc00;
+        }
+        
+        .warning p {
+            font-size: 1rem;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+        
+        .warning-btn {
+            background: #ffcc00;
+            color: #333;
+            border: none;
+            padding: 8px 25px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .warning-btn:hover {
+            background: #ffdd44;
+            transform: scale(1.05);
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 999;
+            display: none;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+        
+        /* 载物台控制按钮 */
+        .stage-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+            justify-items: center;
+        }
+        
+        .stage-btn {
+            background: rgba(80, 100, 150, 0.7);
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            width: 45px;
+            height: 45px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .stage-btn:hover {
+            background: rgba(100, 130, 200, 0.9);
+            transform: scale(1.05);
+        }
+        
+        .stage-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .stage-up { grid-column: 2; grid-row: 1; }
+        .stage-down { grid-column: 2; grid-row: 3; }
+        .stage-left { grid-column: 1; grid-row: 2; }
+        .stage-right { grid-column: 3; grid-row: 2; }
+        .stage-center { 
+            grid-column: 2; 
+            grid-row: 2; 
+            background: rgba(120, 150, 200, 0.7);
+            font-size: 0.8rem;
+        }
+        
+        /* 反光镜选择按钮 */
+        .mirror-select {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .mirror-btn {
+            flex: 1;
+            padding: 8px;
+            background: rgba(80, 100, 150, 0.7);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .mirror-btn.active {
+            background: rgba(80, 120, 200, 0.9);
+            box-shadow: 0 0 10px rgba(100, 180, 255, 0.5);
+        }
+        
+        .mirror-btn:hover {
+            background: rgba(100, 130, 200, 0.9);
+        }
+        
+        .stage-coords {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #a0d2ff;
+        }
+        
+        /* 宽屏适配 - 当屏幕比例接近16:9时恢复水平布局 */
+        @media (min-aspect-ratio: 16/9) {
+            .container {
+                flex-direction: row;
+            }
+            
+            .controls {
+                flex: 1;
+            }
+            
+            .viewer {
+                flex: 1.5;
+            }
+            
+            .controls-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Zhu's AI智能虚拟显微镜</h1>
+        <p>此交互演示帮助学生学习显微镜的结构和使用方法。在左侧面板操作显微镜部件，观察右侧样品的变化。</p>
+    </div>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <h2><i>🔍</i> 光学系统</h2>
+                <div class="controls-grid">
+                    <div class="control-item" id="eyepiece" onclick="selectControl('eyepiece')">
+                        <h3>目镜</h3>
+                        <p>放大倍数: 10X</p>
+                        <div class="slider-control">
+                            <label for="eyepiece-slider">放大倍数调整</label>
+                            <input type="range" id="eyepiece-slider" min="5" max="20" value="10" oninput="adjustEyepiece(this.value)">
+                        </div>
+                    </div>
+                    
+                    <div class="control-item" id="objective" onclick="selectControl('objective')">
+                        <h3>物镜</h3>
+                        <p>当前: 4X</p>
+                        <div class="slider-control">
+                            <label for="objective-select">选择物镜</label>
+                            <select id="objective-select" onchange="changeObjective(this.value)">
+                                <option value="4" selected>4X (低倍)</option>
+                                <option value="10">10X (中倍)</option>
+                                <option value="40">40X (高倍)</option>
+                                <option value="100">100X (油镜)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="control-item" id="aperture" onclick="selectControl('aperture')">
+                        <h3>光圈</h3>
+                        <p>控制进光量</p>
+                        <div class="slider-control">
+                            <label for="aperture-slider">光圈大小</label>
+                            <input type="range" id="aperture-slider" min="1" max="5" value="3" oninput="adjustAperture(this.value)">
+                        </div>
+                    </div>
+                    
+                    <div class="control-item" id="mirror" onclick="selectControl('mirror')">
+                        <h3>反光镜</h3>
+                        <p>选择反射面类型</p>
+                        <div class="mirror-select">
+                            <button class="mirror-btn active" id="concave-mirror" onclick="selectMirror('concave')">凹面镜<br><small>(光线暗时使用)</small></button>
+                            <button class="mirror-btn" id="plane-mirror" onclick="selectMirror('plane')">平面镜<br><small>(光线亮时使用)</small></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h2><i>⚙️</i> 机械系统</h2>
+                <div class="controls-grid">
+                    <div class="control-item" id="stage" onclick="selectControl('stage')">
+                        <h3>载物台</h3>
+                        <p>移动样品位置 (显微镜成像为倒像)</p>
+                        <div class="stage-controls">
+                            <button class="stage-btn stage-up" onclick="moveStage(0, -10)">↑</button>
+                            <button class="stage-btn stage-down" onclick="moveStage(0, 10)">↓</button>
+                            <button class="stage-btn stage-left" onclick="moveStage(-10, 0)">←</button>
+                            <button class="stage-btn stage-right" onclick="moveStage(10, 0)">→</button>
+                            <button class="stage-btn stage-center" onclick="resetStage()">复位</button>
+                        </div>
+                        <div class="stage-coords">
+                            位置: X: <span id="stage-x">0</span> | Y: <span id="stage-y">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-item" id="coarse" onclick="selectControl('coarse')">
+                        <h3>粗准焦螺旋</h3>
+                        <p>大幅调整焦距</p>
+                        <div class="slider-control">
+                            <label for="coarse-slider">粗调焦距</label>
+                            <input type="range" id="coarse-slider" min="0" max="100" value="0" oninput="adjustCoarseFocus(this.value)">
+                        </div>
+                    </div>
+                    
+                    <div class="control-item" id="fine" onclick="selectControl('fine')">
+                        <h3>细准焦螺旋</h3>
+                        <p>精细调整焦距</p>
+                        <div class="slider-control">
+                            <label for="fine-slider">细调焦距</label>
+                            <input type="range" id="fine-slider" min="0" max="100" value="0" oninput="adjustFineFocus(this.value)">
+                        </div>
+                    </div>
+                    
+                    <div class="control-item" id="turret" onclick="selectControl('turret')">
+                        <h3>转换器</h3>
+                        <p>切换不同物镜</p>
+                        <div class="slider-control">
+                            <label for="turret-select">选择物镜</label>
+                            <select id="turret-select" onchange="changeObjective(this.value)">
+                                <option value="4" selected>4X</option>
+                                <option value="10">10X</option>
+                                <option value="40">40X</option>
+                                <option value="100">100X</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="instructions">
+                <h3>显微镜使用注意事项</h3>
+                <ul>
+                    <li>高倍镜使用后，必须先用转换器转离高倍镜才能取下玻片</li>
+                    <li>使用高倍镜时，只能使用细准焦螺旋调节焦距</li>
+                    <li>调节粗准焦螺旋时，注意物镜与玻片之间的距离</li>
+                    <li>保持显微镜清洁，特别是光学部件</li>
+                    <li>使用油镜后，立即用擦镜纸蘸取二甲苯擦拭镜头</li>
+                    <li>显微镜成倒像：移动方向与观察方向相反</li>
+                    <li>光线暗时使用凹面镜，光线亮时使用平面镜</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="viewer">
+            <div class="view-header">
+                <h2>样品观察区</h2>
+                <div class="magnification-display">放大倍数: <span id="magnification">40</span>X</div>
+            </div>
+            
+            <div class="view-area">
+                <div class="microscope-info">
+                    <p>当前设置:</p>
+                    <p>物镜: 4X | 目镜: 10X</p>
+                    <p>光圈: 中等 | 反光镜: 凹面</p>
+                    <p>焦距: 粗调0 | 细调0</p>
+                    <p>载物台: X:0 Y:0</p>
+                </div>
+                
+                <img src="https://images.unsplash.com/photo-1618044733300-9472054094ee?auto=format&fit=crop&w=600" 
+                     alt="植物细胞样本" class="sample-image" id="sample">
+                
+                <div class="upload-area">
+                    <p>上传自己的样品图片</p>
+                    <button class="upload-btn" onclick="document.getElementById('file-input').click()">选择样品</button>
+                    <input type="file" id="file-input" accept="image/*" style="display:none" onchange="loadImage(event)">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overlay" id="overlay"></div>
+    
+    <div class="warning" id="highMagnificationWarning">
+        <h3>⚠️ 重要安全提示</h3>
+        <p>切换到高倍镜后不能调节粗准焦螺旋，否则会损坏盖玻片！</p>
+        <p>请使用细准焦螺旋进行精细调焦。</p>
+        <button class="warning-btn" onclick="closeWarning()">我明白了</button>
+    </div>
+    <script>
+        // 当前设置状态
+        const settings = {
+            eyepiece: 10,
+            objective: 4,  // 默认改为4X
+            aperture: 3,
+            mirror: 'concave', // 'concave' 或 'plane'
+            stageX: 0,
+            stageY: 0,
+            coarseFocus: 0,  // 默认改为最小值0
+            fineFocus: 0,    // 默认改为最小值0
+            blur: 0,
+            brightness: 100,
+            contrast: 100
+        };
+        
+        // 选择控制项
+        function selectControl(control) {
+            // 移除之前选中的active类
+            document.querySelectorAll('.control-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // 为当前选中的添加active类
+            document.getElementById(control).classList.add('active');
+        }
+        
+        // 调整目镜
+        function adjustEyepiece(value) {
+            settings.eyepiece = parseInt(value);
+            updateView();
+        }
+        
+        // 调整物镜
+        function changeObjective(value) {
+            const newObjective = parseInt(value);
+            
+            // 当切换到高倍镜（40X及以上）时，添加模糊效果
+            if (newObjective >= 40 && settings.objective < 40) {
+                settings.coarseFocus = 0;
+                settings.fineFocus = 0;
+                document.getElementById('coarse-slider').value = 0;
+                document.getElementById('fine-slider').value = 0;
+                settings.blur = 8; // 初始模糊效果
+            } 
+            // 当切换到低倍镜（4X）时，减少模糊效果
+            else if (newObjective === 4) {
+                settings.blur = 0;
+            }
+            
+            settings.objective = newObjective;
+            document.getElementById('objective-select').value = value;
+            document.getElementById('turret-select').value = value;
+            updateView();
+        }
+        
+        // 调整光圈
+        function adjustAperture(value) {
+            settings.aperture = parseInt(value);
+            updateView();
+        }
+        
+        // 选择反光镜类型
+        function selectMirror(type) {
+            settings.mirror = type;
+            
+            // 更新按钮状态
+            document.getElementById('concave-mirror').classList.remove('active');
+            document.getElementById('plane-mirror').classList.remove('active');
+            document.getElementById(`${type}-mirror`).classList.add('active');
+            
+            updateView();
+        }
+        
+        // 移动载物台（符合显微镜成像倒置原理）
+        function moveStage(deltaX, deltaY) {
+            // 显微镜成像为倒像，因此实际移动方向相反
+            settings.stageX += deltaX;
+            settings.stageY += deltaY;
+            
+            // 限制移动范围
+            settings.stageX = Math.max(-100, Math.min(100, settings.stageX));
+            settings.stageY = Math.max(-100, Math.min(100, settings.stageY));
+            
+            // 更新坐标显示
+            document.getElementById('stage-x').textContent = settings.stageX;
+            document.getElementById('stage-y').textContent = settings.stageY;
+            
+            updateView();
+        }
+        
+        // 重置载物台位置
+        function resetStage() {
+            settings.stageX = 0;
+            settings.stageY = 0;
+            document.getElementById('stage-x').textContent = '0';
+            document.getElementById('stage-y').textContent = '0';
+            updateView();
+        }
+        
+        // 调整粗准焦螺旋
+        function adjustCoarseFocus(value) {
+            const newValue = parseInt(value);
+            
+            // 高倍镜（40X及以上）下使用粗准焦螺旋时显示警告
+            if (settings.objective >= 40) {
+                // 只有在值变化时才显示警告
+                if (settings.coarseFocus !== newValue) {
+                    showWarning();
+                }
+            }
+            
+            settings.coarseFocus = newValue;
+            
+            // 在低倍镜（4X）下，粗准焦螺旋可以完全消除模糊
+            if (settings.objective === 4) {
+                settings.blur = 0;
+            }
+            
+            updateView();
+        }
+        
+        // 调整细准焦螺旋
+        function adjustFineFocus(value) {
+            settings.fineFocus = parseInt(value);
+            
+            // 使用细准焦螺旋时减少模糊效果（仅对高倍镜有效）
+            if (settings.objective >= 40) {
+                settings.blur = Math.max(0, 8 - (settings.fineFocus / 12.5));
+            }
+            
+            updateView();
+        }
+        
+        // 显示高倍镜警告
+        function showWarning() {
+            document.getElementById('highMagnificationWarning').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+        
+        // 关闭警告
+        function closeWarning() {
+            document.getElementById('highMagnificationWarning').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+        
+        // 加载图片
+        function loadImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('sample').src = e.target.result;
+                    
+                    // 根据当前物镜设置不同的初始焦距
+                    if (settings.objective >= 40) {
+                        // 高倍镜：重置粗准焦螺旋到最左边
+                        document.getElementById('coarse-slider').value = 0;
+                        settings.coarseFocus = 0;
+                        
+                        // 重置细准焦螺旋
+                        document.getElementById('fine-slider').value = 0;
+                        settings.fineFocus = 0;
+                        
+                        settings.blur = 8;
+                    } else {
+                        // 低倍镜：设置到最小值
+                        document.getElementById('coarse-slider').value = 0;
+                        settings.coarseFocus = 0;
+                        
+                        document.getElementById('fine-slider').value = 0;
+                        settings.fineFocus = 0;
+                        
+                        settings.blur = 0;
+                    }
+                    
+                    // 重置载物台位置
+                    resetStage();
+                    
+                    updateView();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        // 更新视图
+        function updateView() {
+            const sample = document.getElementById('sample');
+            const magnificationDisplay = document.getElementById('magnification');
+            
+            // 计算放大倍数
+            const magnification = settings.eyepiece * settings.objective;
+            magnificationDisplay.textContent = magnification;
+            
+            // 计算模糊效果（焦距）
+            let focusDeviation;
+            
+            if (settings.objective === 4) {
+                // 低倍镜：更容易达到清晰状态
+                focusDeviation = Math.abs(50 - (settings.coarseFocus + settings.fineFocus)/2);
+                let blurValue = Math.min(5, focusDeviation * 0.1);
+                
+                // 低倍镜可以完全消除模糊
+                sample.style.filter = `
+                    blur(${blurValue}px)
+                    brightness(${getBrightnessValue()}%)
+                `;
+            } else if (settings.objective >= 40) {
+                // 高倍镜：使用原有的模糊逻辑
+                focusDeviation = Math.abs(50 - (settings.coarseFocus + settings.fineFocus)/2);
+                let blurValue = Math.min(10, focusDeviation * 0.2);
+                
+                // 高倍镜添加额外模糊效果
+                blurValue = Math.max(blurValue, settings.blur);
+                
+                sample.style.filter = `
+                    blur(${blurValue}px)
+                    brightness(${getBrightnessValue()}%)
+                `;
+            } else {
+                // 中倍镜（10X）
+                focusDeviation = Math.abs(50 - (settings.coarseFocus + settings.fineFocus)/2);
+                let blurValue = Math.min(8, focusDeviation * 0.15);
+                
+                sample.style.filter = `
+                    blur(${blurValue}px)
+                    brightness(${getBrightnessValue()}%)
+                `;
+            }
+            
+            // 应用变换（显微镜成倒像，移动方向与载物台操作相反）
+            sample.style.transform = `
+                scale(${1 + magnification * 0.01})
+                translate(${-settings.stageX}px, ${-settings.stageY}px)
+            `;
+            
+            // 更新信息显示
+            document.querySelector('.microscope-info p:nth-child(2)').textContent = 
+                `物镜: ${settings.objective}X | 目镜: ${settings.eyepiece}X`;
+            
+            document.querySelector('.microscope-info p:nth-child(3)').textContent = 
+                `光圈: ${getApertureLevel(settings.aperture)} | 反光镜: ${settings.mirror === 'concave' ? '凹面' : '平面'}`;
+            
+            document.querySelector('.microscope-info p:nth-child(4)').textContent = 
+                `焦距: 粗调${settings.coarseFocus} | 细调${settings.fineFocus}`;
+            
+            document.querySelector('.microscope-info p:nth-child(5)').textContent = 
+                `载物台: X:${settings.stageX} Y:${settings.stageY}`;
+        }
+        
+        // 计算亮度值（光圈和反光镜）
+        function getBrightnessValue() {
+            let brightnessValue = 50 + (settings.aperture * 15);
+            
+            // 根据反光镜类型调整亮度
+            if (settings.mirror === 'concave') {
+                brightnessValue += 30; // 凹面镜增加更多亮度
+            } else {
+                brightnessValue += 10; // 平面镜增加较少亮度
+            }
+            
+            return brightnessValue;
+        }
+        
+        // 获取光圈级别描述
+        function getApertureLevel(aperture) {
+            const levels = ['最小', '较小', '中等', '较大', '最大'];
+            return levels[aperture - 1] || '中等';
+        }
+        
+        // 初始化
+        window.onload = function() {
+            // 设置滑块和选择框的默认值
+            document.getElementById('coarse-slider').value = 0;
+            document.getElementById('fine-slider').value = 0;
+            document.getElementById('objective-select').value = 4;
+            document.getElementById('turret-select').value = 4;
+            
+            selectControl('eyepiece');
+            updateView();
+        };
+    </script>
+</body>
+</html>
